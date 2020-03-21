@@ -35,6 +35,9 @@ namespace Graphic1
 
         Matrix matrix = new Matrix();
 
+        TransformMatrix translate, rotate;
+        int s = 0;
+
         public Form1()
         {
             InitializeComponent();
@@ -48,8 +51,8 @@ namespace Graphic1
 
         void init()
         {
-            circle1 = new Circle(new Point2D(150, 150), 75);
-            circle2 = new Circle(new Point2D(450, 300), 25);
+            circle1 = new Circle(new Point2D(150, 150), 25);
+            circle2 = new Circle(new Point2D(450, 300), 75);
 
             RealDrawable.Add(circle1);
             RealDrawable.Add(circle2);
@@ -57,7 +60,6 @@ namespace Graphic1
             RealDrawable.Add(new Line(0, -1000, 0, 1000));
 
             UpdateTangent();
-            UpdateBitmap();
         }
 
         private void UpdateBitmap()
@@ -76,6 +78,8 @@ namespace Graphic1
 
             tangent = CalculateTangent();
             RealDrawable.Add(tangent);
+
+            UpdateBitmap();
         }
 
         private Point2D ToLocal(Point2D p)
@@ -118,6 +122,74 @@ namespace Graphic1
             t.Transform(inverse);
 
             return t;
+        }
+
+        private void CalculateTangent(int step)
+        {
+            Circle c1, c2;
+
+            if (circle1.radius < circle2.radius)
+            { c1 = circle1; c2 = circle2; }
+            else
+            { c1 = circle2; c2 = circle1; }
+
+            switch (step)
+            {
+                case 0:
+                    RealDrawable.Remove(tangent);
+                    
+                    UpdateBitmap();
+
+                    button1.Text = "Next step";
+                    break;
+
+                case 1:
+
+                    // Сдвиг начала координат в центр меньшей окружности
+                    translate = new TransformMatrix(-c1.center.X, -c1.center.Y);
+                    c1.Transform(translate);
+                    c2.Transform(translate);
+
+                    UpdateBitmap();
+                    break;
+
+                case 2:
+                    float circlDist = (c1.center - c2.center).abs();
+                    float tangDist = (float)Math.Sqrt(Math.Pow(circlDist, 2) - Math.Pow(c2.radius - c1.radius, 2));
+
+                    // Выравнивание окружностей для проведения касательной
+                    rotate = new TransformMatrix((float)(Math.Acos(tangDist / circlDist) - Math.Atan(c2.center.Y / c2.center.X) + (c2.center.X < 0 ? Math.PI : 0)));
+                    c2.Transform(rotate);
+
+                    UpdateBitmap();
+                    break;
+
+                case 3:
+                    tangent = new Line(0, -c1.radius, c2.center.X, -c1.radius);
+                    RealDrawable.Add(tangent);
+
+                    UpdateBitmap();
+                    break;
+
+                case 4:
+                    // Возвращаем координатные оси
+                    TransformMatrix inverse = translate.inverse() * rotate.inverse();
+                    c1.Transform(inverse);
+                    c2.Transform(inverse);
+                    tangent.Transform(inverse);
+
+                    UpdateBitmap();
+
+                    button1.Text = "Calculate tangent";
+                    break;
+            }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            CalculateTangent(s);
+
+            s = s >= 4 ? 0 : s + 1;
         }
 
         private void panel1_Paint(object sender, PaintEventArgs e)
@@ -180,16 +252,6 @@ namespace Graphic1
             UpdateBitmap();
         }
 
-        private void button1_Click(object sender, EventArgs e)
-        {
-            RealDrawable.Remove(tangent);
-
-            tangent = CalculateTangent();
-            RealDrawable.Add(tangent);
-
-            UpdateBitmap();
-        }
-
         private void panel1_MouseWheel(object sender, MouseEventArgs e)
         {
             var k = e.Delta < 0 ? 0.98f : 1.02f;
@@ -235,8 +297,6 @@ namespace Graphic1
                 default:
                     break;
             }
-
-            UpdateBitmap();
         }
 
         private void panel1_MouseMove(object sender, MouseEventArgs e)
